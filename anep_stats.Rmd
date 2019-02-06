@@ -71,7 +71,7 @@ nep_pop %>%
     addLegend("bottomright", 
               pal = pal, 
               values = ~ estimate,
-              title = "Population percentiles",
+              title = "Population",
               opacity = 1)
 
 nep_pop %>%
