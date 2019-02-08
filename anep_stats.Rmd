@@ -1,8 +1,12 @@
 ---
-title: "ANEP BEA Stats Query"
+title: "ANEP US Census Bureau and Bureau of Economic Assessment Stats Query"
 author: "Ed Sherwood"
 date: "January 24, 2019"
-output: html_document
+output: 
+   html_document:
+     code_folding: hide
+     toc: true
+     toc_depth: 1
 ---
 
 ```{r setup, include=FALSE}
@@ -22,11 +26,11 @@ options(tigris_use_cache = TRUE)
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-## Get some US Cenus data
+## Get some US Census data
 
-Download US Census data and overlay NEP boundaries:
+Download US Census data on natural resource dependent jobs (total # and median income) and summarize across NEP boundaries:
 
-```{r US Census Data}
+```{r Acquire all US Census Data, warning = FALSE}
 nep_sf <- st_read(dsn = "./data-raw", layer = "NEP_Boundaries10162018")
 states <- c("AL", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
             "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
@@ -35,53 +39,89 @@ states <- c("AL", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
             "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
             "PR")
 
-totalpop_sf <- get_acs(geography = "county", variables = c(Income = "B19013_001"), 
+metrics <- load_variables(2017, "acs5", cache = TRUE) %>% 
+       filter(grepl("Fishing|fishing", label))
+
+totaljobs_sf <- get_acs(geography = "county", variables = c(Ag_For_Fish_Hunt_Min = "C24050_002"), 
                          state = states, geometry = TRUE)
-ustotalpop_sf <- st_transform(totalpop_sf, st_crs(nep_sf))
 
-nep_pop_intersects <- st_intersects(nep_sf, ustotalpop_sf)
+nr_medinc_sf <- get_acs(geography = "county", variables = c(Med_Income = "B24031_003"), 
+                         state = states, geometry = TRUE)
 
-nep_sel_sf <- ustotalpop_sf[unlist(nep_pop_intersects),]
+ustotaljobs_sf <- st_transform(totaljobs_sf, st_crs(nep_sf))
+usnrmedinc_sf <- st_transform(nr_medinc_sf, st_crs(nep_sf))
 
-nep_pop <- st_join(nep_sf, nep_sel_sf, join = st_intersects) %>%
-           group_by(nep_pop$NEP_NAME) %>% 
-           sf::st_buffer(dist = 0)
-nep_pop_sum <- nep_pop %>% 
+nep_jobs_intersects <- st_intersects(nep_sf, ustotaljobs_sf)
+nep_medinc_intersects <- st_intersects(nep_sf, nr_medinc_sf)
+
+nep_sel_sf <- ustotaljobs_sf[unlist(nep_jobs_intersects),]
+nep_sel2_sf <- nr_medinc_sf[unlist(nep_medinc_intersects),]
+
+nep_jobs <- st_join(nep_sf, nep_sel_sf, join = st_intersects) %>%
+                   sf::st_buffer(dist = 0)
+nep_nrmedinc <- st_join(nep_sf, nep_sel2_sf, join = st_intersects) %>%
+                   sf::st_buffer(dist = 0)
+
+nep_jobs_sum <- nep_jobs %>% 
                select(NEP_NAME, estimate) %>%
                group_by(NEP_NAME) %>% 
-               summarise(pop = median(estimate))
+               summarise(jobs = sum(estimate))
+
+nep_medinc_sum <- nep_nrmedinc %>% 
+               select(NEP_NAME, estimate) %>%
+               group_by(NEP_NAME) %>% 
+               summarise(medinc = median(estimate))
 
 ```
 
 ## Plot US Census data by NEP Project Areas
 
-Plot US Census data that's restricted to the NEP boundaries:
+Plot US Census natural resource dependent jobs data within the NEP boundaries:
 
-```{r Display Census Data as a Map}
+```{r Display Census Job Data as a Map, warning = FALSE}
 
-pal <- colorNumeric(palette = "viridis", domain = nep_pop_sum$pop, n = 10)
+pal <- colorNumeric(palette = "viridis", domain = nep_jobs_sum$jobs, n = 10)
 
-nep_pop_sum %>%
+nep_jobs_sum %>%
     st_transform(crs = "+init=epsg:4326") %>%
     leaflet(width = "100%") %>%
     addProviderTiles(provider = "CartoDB.Positron") %>%
-    addPolygons(popup = ~ paste(NEP_NAME,"</br>","Median = ",pop),
+    addPolygons(popup = ~ paste(NEP_NAME,"</br>","Jobs = ",jobs),
                 stroke = FALSE,
                 smoothFactor = 0,
                 fillOpacity = 0.7,
-                color = ~ pal(pop)) %>%
+                color = ~ pal(jobs)) %>%
     addLegend("bottomright", 
               pal = pal, 
-              values = ~ pop,
-              title = "Median Income",
+              values = ~ jobs,
+              title = "Natural Resource Dependent Jobs</br>(Ag.,Forest.,Fishing,Hunting,Mining)",
               opacity = 1)
+```
+Plot US Census natural resource dependent jobs, median income data within the NEP boundaries:
+``` {r Display Census Income Data in a Map, warning = FALSE}
+pal2 <- colorNumeric(palette = "viridis", domain = nep_medinc_sum$medinc, n = 10)
 
+nep_medinc_sum %>%
+    st_transform(crs = "+init=epsg:4326") %>%
+    leaflet(width = "100%") %>%
+    addProviderTiles(provider = "CartoDB.Positron") %>%
+    addPolygons(popup = ~ paste(NEP_NAME,"</br>","Median Income = ",medinc),
+                stroke = FALSE,
+                smoothFactor = 0,
+                fillOpacity = 0.7,
+                color = ~ pal2(medinc)) %>%
+    addLegend("bottomright", 
+              pal = pal2, 
+              values = ~ medinc,
+              title = "Natural Resource Dependent Jobs</br>(Median Annual Income)",
+              opacity = 1)
 ```
 
-## Develop US BEA Plots
+## Get some US BEA data
 
 Work in progress ...  
 
-```{r bea, echo=TRUE}
+```{r Acquire all US BEA Data, warning = FALSE}
 
+#fish <- beaSearch('CAEMP25', asHtml = FALSE)
 ```
