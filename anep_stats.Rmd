@@ -6,31 +6,26 @@ output:
    html_document:
      code_folding: hide
      toc: true
-     toc_depth: 1
+     toc_float: true
 ---
 
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(tidycensus) #Need an api key from US Census Bureau.
-#library(tigris)
 library(bea.R) #Need an api key from US BEA.
 library(viridis)
 library(rgdal)
 library(sf)
-#library(rmapshaper)
-#library(gridExtra)
-#library(mapview)
 library(leaflet)
-#options(tigris_class = "sf")
 options(tigris_use_cache = TRUE)
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Get some US Census data
 
-Download US Census data on natural resource dependent jobs (total # and median income) and summarize across NEP boundaries:
+Download US Census data on natural resource dependent jobs (total # and median income) within counties and summarize across NEP boundaries:
 
-```{r Acquire all US Census Data, warning = FALSE}
+```{r Acquire all US Census Data, warning = FALSE, message=FALSE}
 nep_sf <- st_read(dsn = "./data-raw", layer = "NEP_Boundaries10162018")
 states <- c("AL", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
             "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
@@ -78,7 +73,7 @@ nep_medinc_sum <- nep_nrmedinc %>%
 
 Plot US Census natural resource dependent jobs data within the NEP boundaries:
 
-```{r Display Census Job Data as a Map, warning = FALSE}
+```{r Display Census Job Data as a Map, warning = FALSE, message=FALSE}
 
 pal <- colorNumeric(palette = "viridis", domain = nep_jobs_sum$jobs, n = 10)
 
@@ -98,7 +93,7 @@ nep_jobs_sum %>%
               opacity = 1)
 ```
 Plot US Census natural resource dependent jobs, median income data within the NEP boundaries:
-``` {r Display Census Income Data in a Map, warning = FALSE}
+``` {r Display Census Income Data in a Map, warning = FALSE, message=FALSE}
 pal2 <- colorNumeric(palette = "viridis", domain = nep_medinc_sum$medinc, n = 10)
 
 nep_medinc_sum %>%
@@ -119,9 +114,48 @@ nep_medinc_sum %>%
 
 ## Get some US BEA data
 
-Work in progress ...  
+Import US BEA data on natural resource dependent jobs (total county income) and summarize across NEP boundaries:
 
-```{r Acquire all US BEA Data, warning = FALSE}
+```{r Acquire all US BEA Data, warning = FALSE, message=FALSE}
 
-#fish <- beaSearch('CAEMP25', asHtml = FALSE)
+nr_income <- read.csv("./data-raw/CAINC5N__ALL_AREAS_2001_2017.csv", header = TRUE) %>% 
+             filter(LineCode==100,str_detect(GeoFIPS, "....0")==FALSE) %>%    
+             mutate(GEOID = as.character(GeoFIPS),
+                    YR2017 = as.character(X2017)) %>% 
+             select(GeoName, GEOID, YR2017)
+nr_income$GEOID <- gsub(" ", "", nr_income$GEOID, fixed = TRUE)
+nr_income$Y2017 <- as.numeric(nr_income$YR2017)
+
+nr_inc_sf <- left_join(nep_sel_sf, nr_income, by = c('GEOID' = 'GEOID'))
+
+nep_totinc <- st_join(nep_sf, nr_inc_sf, join = st_intersects) %>%
+                   sf::st_buffer(dist = 0)
+
+nep_inc_sum <- nep_totinc %>% 
+               select(NEP_NAME, Y2017) %>%
+               group_by(NEP_NAME) %>% 
+               summarise(totinc = sum(Y2017, na.rm = TRUE))
+nep_inc_sum$totinc <- ifelse(nep_inc_sum$totinc==0,NA,nep_inc_sum$totinc*1000)
+
+```
+
+Plot US BEA natural resource dependent jobs total income estimates within the NEP boundaries (where available):
+
+```{r Plot Natural Resource Dependent Jobs Total Income, warning=FALSE, message=FALSE}
+pal3 <- colorNumeric(palette = "viridis", domain = nep_inc_sum$totinc, n = 10)
+
+nep_inc_sum %>%
+    st_transform(crs = "+init=epsg:4326") %>%
+    leaflet(width = "100%") %>%
+    addProviderTiles(provider = "CartoDB.Positron") %>%
+    addPolygons(popup = ~ paste(NEP_NAME,"</br>","Total Income (2017) = ",totinc),
+                stroke = FALSE,
+                smoothFactor = 0,
+                fillOpacity = 0.7,
+                color = ~ pal3(totinc)) %>%
+    addLegend("bottomright", 
+              pal = pal3, 
+              values = ~ totinc,
+              title = "Natural Resource Dependent Jobs</br>(Total Annual Income, if reported)",
+              opacity = 1)
 ```
