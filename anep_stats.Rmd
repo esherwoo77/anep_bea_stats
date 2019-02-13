@@ -150,13 +150,18 @@ Import US BEA data on natural resource dependent jobs (total county income) and 
 
 ```{r Acquire all US BEA County Data, warning = FALSE, message=FALSE}
 
-nr_income <- read.csv("./data-raw/CAINC5N__ALL_AREAS_2001_2017.csv", header = TRUE) %>% 
-             filter(LineCode==100,str_detect(GeoFIPS, "....0")==FALSE) %>%    
-             mutate(GEOID = as.character(GeoFIPS),
-                    YR2017 = as.character(X2017)) %>% 
-             select(GeoName, GEOID, YR2017)
+userSpecList <- list('UserID' = '88964E07-8671-4DFB-BF65-4E680DEDA641',
+                     'Method' = 'GetData',
+                     'datasetname' = 'Regional',
+                     'TableName' = 'CAINC5N',
+                     'LineCode' = '100',
+                     'GeoFIPS' = 'COUNTY',
+                     'Year' = '2017')
+
+nr_income <- beaGet(userSpecList, asTable = TRUE) %>% 
+                    filter(str_detect(GeoFips, "....0")==FALSE) %>%    
+                    mutate(GEOID = as.character(GeoFips))
 nr_income$GEOID <- gsub(" ", "", nr_income$GEOID, fixed = TRUE)
-nr_income$Y2017 <- as.numeric(nr_income$YR2017)
 
 nr_inc_sf <- left_join(nep_sel_sf, nr_income, by = c('GEOID' = 'GEOID'))
 
@@ -164,9 +169,9 @@ nep_totinc <- st_join(nep_sf, nr_inc_sf, join = st_intersects) %>%
                    sf::st_buffer(dist = 0)
 
 nep_inc_sum <- nep_totinc %>% 
-               select(NEP_NAME, Y2017) %>%
+               select(NEP_NAME, DataValue_2017) %>%
                group_by(NEP_NAME) %>% 
-               summarise(totinc = sum(Y2017, na.rm = TRUE))
+               summarise(totinc = sum(DataValue_2017, na.rm = TRUE))
 nep_inc_sum$totinc <- ifelse(nep_inc_sum$totinc==0,NA,nep_inc_sum$totinc*1000)
 
 ```
