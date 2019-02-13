@@ -4,6 +4,7 @@ author: "Ed Sherwood"
 date: "January 24, 2019"
 output: 
    html_document:
+     df_print: paged
      code_folding: hide
      toc: true
      toc_float: true
@@ -17,6 +18,7 @@ library(viridis)
 library(rgdal)
 library(sf)
 library(leaflet)
+library(rmarkdown)
 options(tigris_use_cache = TRUE)
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -26,7 +28,7 @@ knitr::opts_chunk$set(echo = TRUE)
 Download US Census data on natural resource dependent jobs (total # and median income) within counties and summarize across NEP boundaries:
 
 ```{r Acquire all US Census Data, warning = FALSE, message=FALSE}
-nep_sf <- st_read(dsn = "./data-raw", layer = "NEP_Boundaries10162018")
+nep_sf <- st_read(dsn = "./data-raw", layer = "NEP_Boundaries10162018", quiet = TRUE)
 states <- c("AL", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
             "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
             "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
@@ -69,10 +71,11 @@ nep_medinc_sum <- nep_nrmedinc %>%
 
 ```
 
-## Plot US Census data by NEP Project Areas
+## US Census Natural Resource Dependent Jobs by NEP Project Areas {.tabset}
+
+### Overview Map
 
 Plot US Census natural resource dependent jobs data within the NEP boundaries:
-
 ```{r Display Census Job Data as a Map, warning = FALSE, message=FALSE}
 
 pal <- colorNumeric(palette = "viridis", domain = nep_jobs_sum$jobs, n = 10)
@@ -92,8 +95,25 @@ nep_jobs_sum %>%
               title = "Natural Resource Dependent Jobs</br>(Ag.,Forest.,Fishing,Hunting,Mining)",
               opacity = 1)
 ```
+
+### Data Table
+
+Underlying natural resource dependent jobs estimated within NEP Project Areas:
+```{r Display Census NR Jobs by NEP as a Table, warning = FALSE, message=FALSE}
+nep_jobs2 <- nep_jobs_sum  %>% 
+             select(NEP_NAME, jobs) %>% 
+             st_set_geometry(NULL) %>% 
+             rename("NEP" = NEP_NAME, "Total Jobs(2015)" = jobs)
+
+nep_jobs2
+```
+
+## US Census Natural Resource Dependent Jobs, Median Incomes by NEP Project Areas {.tabset}
+
+### Overview Map
+
 Plot US Census natural resource dependent jobs, median income data within the NEP boundaries:
-``` {r Display Census Income Data in a Map, warning = FALSE, message=FALSE}
+``` {r Display Census Median Income Data in a Map, warning = FALSE, message=FALSE}
 pal2 <- colorNumeric(palette = "viridis", domain = nep_medinc_sum$medinc, n = 10)
 
 nep_medinc_sum %>%
@@ -112,11 +132,23 @@ nep_medinc_sum %>%
               opacity = 1)
 ```
 
-## Get some US BEA data
+### Data Table
+Underlying natural resource dependent jobs, median incomes estimated within NEP Project Areas:
+```{r Display Census Median Income by NEP as a Table, warning = FALSE, message=FALSE}
+nep_medinc2 <- nep_medinc_sum  %>% 
+             select(NEP_NAME, medinc) %>% 
+             st_set_geometry(NULL) %>% 
+             rename("NEP" = NEP_NAME, "Median Income ($, 2015)" = medinc)
+
+nep_medinc2
+```
+
+## US BEA Natural Resource Dependent Jobs, Total Personal Income by NEP Project Areas {.tabset}
+
 
 Import US BEA data on natural resource dependent jobs (total county income) and summarize across NEP boundaries:
 
-```{r Acquire all US BEA Data, warning = FALSE, message=FALSE}
+```{r Acquire all US BEA County Data, warning = FALSE, message=FALSE}
 
 nr_income <- read.csv("./data-raw/CAINC5N__ALL_AREAS_2001_2017.csv", header = TRUE) %>% 
              filter(LineCode==100,str_detect(GeoFIPS, "....0")==FALSE) %>%    
@@ -139,6 +171,8 @@ nep_inc_sum$totinc <- ifelse(nep_inc_sum$totinc==0,NA,nep_inc_sum$totinc*1000)
 
 ```
 
+### Overview Map
+
 Plot US BEA natural resource dependent jobs total income estimates within the NEP boundaries (where available):
 
 ```{r Plot Natural Resource Dependent Jobs Total Income, warning=FALSE, message=FALSE}
@@ -158,4 +192,16 @@ nep_inc_sum %>%
               values = ~ totinc,
               title = "Natural Resource Dependent Jobs</br>(Total Annual Income, if reported)",
               opacity = 1)
+```
+
+### Data Table
+Underlying natural resource dependent jobs, total personal income estimated within NEP Project Areas:
+```{r Display BEA NR Job Total Income by NEP as a Table, warning = FALSE, message=FALSE}
+nep_inc2 <- nep_inc_sum  %>% 
+             select(NEP_NAME, totinc) %>% 
+             st_set_geometry(NULL) %>% 
+             rename("NEP" = NEP_NAME, "Total Personal Income ($, 2017)" = totinc)
+
+nep_inc2
+
 ```
