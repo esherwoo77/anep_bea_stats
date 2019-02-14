@@ -18,6 +18,7 @@ library(viridis)
 library(rgdal)
 library(sf)
 library(leaflet)
+library(leaflet.minicharts)
 library(rmarkdown)
 options(tigris_use_cache = TRUE)
 knitr::opts_chunk$set(echo = TRUE)
@@ -28,7 +29,9 @@ knitr::opts_chunk$set(echo = TRUE)
 Download US Census data on natural resource dependent jobs (total # and median income) within counties and summarize across NEP boundaries:
 
 ```{r Acquire all US Census Data, warning = FALSE, message=FALSE}
-nep_sf <- st_read(dsn = "./data-raw", layer = "NEP_Boundaries10162018", quiet = TRUE)
+nep_sf <- st_read(dsn = "./data-raw", layer = "NEP_Boundaries10162018", quiet = TRUE) %>% 
+          mutate(NEP_NAME = recode(NEP_NAME, "San Franciso Estuary Partnership" = "San Francisco Estuary Partnership"))
+nep_centroid <- st_centroid(nep_sf)
 states <- c("AL", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
             "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
             "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
@@ -208,5 +211,60 @@ nep_inc2 <- nep_inc_sum  %>%
              rename("NEP" = NEP_NAME, "Total Personal Income ($, 2017)" = totinc)
 
 nep_inc2
+
+```
+
+## US EPA NEPORT Data Synthesis {.tabset}
+
+Import GPRA data related to habitat restoration activities across the NEP Project areas, and produce animated map of restoration activities by year. These restoration activities support the natural resource dependent jobs described above.
+
+```{r Import GPRA data, warning=FALSE, message=FALSE}
+habitat <- read.csv('./data-raw/GPRA_NEP_HabCat_by_activity_.csv', header=TRUE)
+
+hab_sum <- habitat %>%
+           mutate(Activity = recode(Activity, "-" = "Unspecified")) %>%
+           mutate(NEP.Name = recode(NEP.Name, "Santa Monica Bay Restoration Project" = "Santa Monica Bay Restoration Foundation", 
+                                    "San Francisco Estuary Project" = "San Francisco Estuary Partnership",
+                                    "Lower Columbia River Estuary" = "Lower Columbia Estuary Partnership",
+                                    "Mobile Bay Estuary Program" = "Mobile Bay National Estuary Program",
+                                    "Indian River Lagoon NEP" = "Indian River Lagoon National Estuary Program",
+                                    "San Juan Bay NEP" = "San Juan Bay Estuary Partnership",
+                                    "Albemarle-Pamlico Estuary Program" = "Albemarle-Pamlico National Estuary Program",
+                                    "Barnegat Bay Estuary Program" = "Barnegat Bay Partnership",
+                                    "Delaware Estuary Program" = "Partnership for the Delaware Estuary",
+                                    "Delaware Inland Bays Estuary Program" = "Delaware Center for the Inland Bays",
+                                    "New York-New Jersey Harbor Estuary Program" = "New York - New Jersey Harbor Estuary Program",
+                                    "Massachusetts Bays NEP" = "Massachusetts Bays National Estuary Program",
+                                    "Barataria-Terrebonne Estuary Program" = "Barataria-Terrebonne National Estuary Program",
+                                    "Morro Bay Estuary Program" = "Morro Bay National Estuary Program")) %>% 
+           group_by(NEP.Name, Year, Activity) %>%
+           mutate(acres = as.numeric(Acres)) %>% 
+           summarise(totacres = sum(acres))
+hab_sum_sf <- left_join(nep_centroid, hab_sum, by = c('NEP_NAME' = 'NEP.Name')) 
+
+hab_sum_sf <- spread(hab_sum_sf, Activity, totacres) %>% 
+              mutate(Total = rowSums(cbind(Unspecified,Enhancement,Establishment,Maintenance, 
+                                 Protection,Reestablishment,Rehabilitation), na.rm=TRUE))
+nep_coord <- st_coordinates(hab_sum_sf)
+
+hab_sum_sf <- cbind(hab_sum_sf,nep_coord) %>% 
+              as.data.frame()
+
+hab_sum_sf[is.na(hab_sum_sf)] <- 0
+
+library(RColorBrewer)
+
+colors <- brewer.pal(7, 'Set1')
+
+hab_sum_sf %>%
+    leaflet(width = "100%") %>%
+    addProviderTiles(provider = "CartoDB.Positron") %>%
+    addMinicharts(hab_sum_sf$X, hab_sum_sf$Y,
+                  type = "pie",
+                  layerId = hab_sum_sf$NEP_NAME, 
+                  chartdata = hab_sum_sf[,c(10:16)],
+                  time = hab_sum_sf$Year,
+                  colorPalette = colors, 
+                  width = 60 * sqrt(hab_sum_sf$Total) / sqrt(max(hab_sum_sf$Total)), transitionTime = 0)
 
 ```
