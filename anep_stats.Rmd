@@ -19,6 +19,7 @@ library(rgdal)
 library(sf)
 library(leaflet)
 library(leaflet.minicharts)
+library(RColorBrewer)
 library(rmarkdown)
 options(tigris_use_cache = TRUE)
 knitr::opts_chunk$set(echo = TRUE)
@@ -106,7 +107,7 @@ Underlying natural resource dependent jobs estimated within NEP Project Areas:
 nep_jobs2 <- nep_jobs_sum  %>% 
              select(NEP_NAME, jobs) %>% 
              st_set_geometry(NULL) %>% 
-             rename("NEP" = NEP_NAME, "Total Jobs(2015)" = jobs)
+             rename("NEP" = NEP_NAME, "Total Jobs (2015)" = jobs)
 
 nep_jobs2
 ```
@@ -153,7 +154,7 @@ Import US BEA data on natural resource dependent jobs (total county income) and 
 
 ```{r Acquire all US BEA County Data, warning = FALSE, message=FALSE}
 
-userSpecList <- list('UserID' = '88964E07-8671-4DFB-BF65-4E680DEDA641',
+userSpecList <- list('UserID' = beaKey,     #Need a US BEA API key here 
                      'Method' = 'GetData',
                      'datasetname' = 'Regional',
                      'TableName' = 'CAINC5N',
@@ -251,8 +252,6 @@ hab_sum_sf <- cbind(hab_sum_sf,nep_coord) %>%
               as.data.frame()
 
 hab_sum_sf[is.na(hab_sum_sf)] <- 0
-
-library(RColorBrewer)
 
 colors <- brewer.pal(7, 'Set1')
 
