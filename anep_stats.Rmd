@@ -1,7 +1,7 @@
 ---
 title: "ANEP US Census Bureau and Bureau of Economic Assessment Stats Query"
 author: "Ed Sherwood"
-date: "January 24, 2019"
+date: "February 18, 2019"
 output: 
    html_document:
      df_print: paged
@@ -41,12 +41,15 @@ states <- c("AL", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
             "PR")
 
 metrics <- load_variables(2017, "acs5", cache = TRUE) %>% 
-       filter(grepl("Fishing|fishing", label))
+       filter(grepl("fishing|hunting", label))
 
-totaljobs_sf <- get_acs(geography = "county", variables = c(Ag_For_Fish_Hunt_Min = "C24050_002"), 
-                         state = states, geometry = TRUE)
+years <- lst(2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017)
 
-nr_medinc_sf <- get_acs(geography = "county", variables = c(Med_Income = "B24031_003"), 
+totaljobs_sf <- get_acs(geography = "county", variables = c(Ag_For_Fish_Hunt = "S2403_C01_003"), #C24050_002 
+                        state = states, year = 2017, output = "tidy",
+                        geometry = TRUE)
+    
+nr_medinc_sf <- get_acs(geography = "county", variables = c(Med_Income = "S2413_C01_003"), #B24031_003 
                          state = states, geometry = TRUE)
 
 ustotaljobs_sf <- st_transform(totaljobs_sf, st_crs(nep_sf))
@@ -96,7 +99,7 @@ nep_jobs_sum %>%
     addLegend("bottomright", 
               pal = pal, 
               values = ~ jobs,
-              title = "Natural Resource Dependent Jobs</br>(Ag.,Forest.,Fishing,Hunting,Mining)",
+              title = "Natural Resource Dependent Jobs</br>(Farming,Forestry,Fishing & Hunting)",
               opacity = 1)
 ```
 
@@ -107,7 +110,7 @@ Underlying natural resource dependent jobs estimated within NEP Project Areas:
 nep_jobs2 <- nep_jobs_sum  %>% 
              select(NEP_NAME, jobs) %>% 
              st_set_geometry(NULL) %>% 
-             rename("NEP" = NEP_NAME, "Total Jobs (2015)" = jobs)
+             rename("NEP" = NEP_NAME, "Total Jobs (2017)" = jobs)
 
 nep_jobs2
 ```
@@ -142,7 +145,7 @@ Underlying natural resource dependent jobs, median incomes estimated within NEP 
 nep_medinc2 <- nep_medinc_sum  %>% 
              select(NEP_NAME, medinc) %>% 
              st_set_geometry(NULL) %>% 
-             rename("NEP" = NEP_NAME, "Median Income ($, 2015)" = medinc)
+             rename("NEP" = NEP_NAME, "Median Income ($, 2017)" = medinc)
 
 nep_medinc2
 ```
