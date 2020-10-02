@@ -28,6 +28,10 @@ library(ggmap)
 
 options(tigris_use_cache = TRUE)
 knitr::opts_chunk$set(echo = TRUE)
+
+Sys.getenv("beakey")
+Sys.getenv("CENSUS_API_KEY")
+Sys.getenv("noaakey")
 ```
 
 ## Overlay the US Congressional Districts and ANEP Boundaries
