@@ -161,7 +161,7 @@ Import US BEA data on natural resource dependent jobs (total county income) and 
 
 ```{r Acquire all US BEA County Data, warning = FALSE, message=FALSE}
 
-userSpecList <- list('UserID' = beaKey,     #Need a US BEA API key here 
+userSpecList <- list('UserID' = Sys.getenv("beakey"), #Need a US BEA API key here 
                      'Method' = 'GetData',
                      'datasetname' = 'Regional',
                      'TableName' = 'CAINC5N',
