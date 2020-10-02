@@ -1,0 +1,75 @@
+---
+title: US Congressional Districts & Representaives within the 28 National Estuary
+  Programs
+author: "Ed Sherwood"
+date: "February 11, 2020"
+output: 
+   html_document:
+     df_print: paged
+     code_folding: hide
+     toc: true
+     toc_float: true
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(tidycensus) #Need an api key from US Census Bureau.
+library(tigris)
+library(bea.R) #Need an api key from US BEA.
+library(viridis)
+library(rgdal)
+library(sf)
+library(leaflet)
+library(leaflet.minicharts)
+library(RColorBrewer)
+library(rmarkdown)
+library(ggplot2)
+library(ggmap)
+
+options(tigris_use_cache = TRUE)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overlay the US Congressional Districts and ANEP Boundaries
+
+Get data
+
+```{r US Congressional District Data}
+get_congress_map <- function(cong=116) {
+  tmp_file <- tempfile()
+  tmp_dir  <- tempdir()
+  zp <- sprintf("https://www2.census.gov/geo/tiger/TIGER2018/CD/tl_2018_us_cd%03i.zip",cong)
+  download.file(zp, tmp_file)
+  unzip(zipfile = tmp_file, exdir = tmp_dir)
+  fpath <- paste(tmp_dir, sprintf("tl_2018_us_cd%03i.shp",cong), sep = "/")
+  st_read(fpath)
+}
+
+cd116_sf <- get_congress_map(116)
+
+nep_sf <- st_read(dsn = "./data-raw", layer = "NEP_Boundaries10162018", quiet = TRUE) %>% 
+          mutate(NEP_NAME = recode(NEP_NAME, "San Franciso Estuary Partnership" = "San Francisco Estuary Partnership"))
+
+nep_sf %>%
+    st_transform(crs = "+init=epsg:4326") %>%
+    leaflet(width = "100%") %>%
+    addProviderTiles(provider = "CartoDB.Positron") %>% 
+    addPolygons(popup = ~ paste(NEP_NAME),
+                stroke = FALSE,
+                smoothFactor = 0)
+
+dm <- get_map(location="United States",zoom=8)
+ggmap(dm) +
+  geom_sf(data=cd116_sf)
+  
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
