@@ -51,10 +51,10 @@ years <- lst(2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017)
 
 totaljobs_sf <- get_acs(geography = "county", variables = c(Ag_For_Fish_Hunt = "S2403_C01_003"), #C24050_002 
                         state = states, year = 2017, output = "tidy",
-                        geometry = TRUE)
+                        geometry = TRUE, key = Sys.getenv("CENSUS_API_KEY"))
     
 nr_medinc_sf <- get_acs(geography = "county", variables = c(Med_Income = "S2413_C01_003"), #B24031_003 
-                         state = states, geometry = TRUE)
+                         state = states, geometry = TRUE, key = Sys.getenv("CENSUS_API_KEY"))
 
 ustotaljobs_sf <- st_transform(totaljobs_sf, st_crs(nep_sf))
 usnrmedinc_sf <- st_transform(nr_medinc_sf, st_crs(nep_sf))
